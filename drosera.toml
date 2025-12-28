@@ -1,0 +1,17 @@
+ethereum_rpc = "https://rpc.mevblocker.io"
+drosera_rpc = "https://relay.ethereum.drosera.io/"
+
+[traps]
+
+[traps.collateral_ratio_slope]
+
+path = "out/CollateralRatioSlopeTrap.sol/CollateralRatioSlopeTrap.json"
+contract_name = "CollateralRatioSlopeTrap"
+response_contract = "0xREPLACE_WITH_RESPONDER_ADDRESS"
+response_function = "handle(bytes)"
+cooldown_period_blocks = 1
+block_sample_size = 4
+min_number_of_operators = 1
+max_number_of_operators = 5
+private_trap = true
+whitelist = ["0xREPLACE_WITH_OPERATOR_ADDRESS"]
