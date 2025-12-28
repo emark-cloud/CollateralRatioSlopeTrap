@@ -1,4 +1,4 @@
-# 🧮 Collateralization Ratio Slope Trap
+# Collateralization Ratio Slope Trap
 
 ### DeFi Liquidation Predictor (Drosera Trap)
 
