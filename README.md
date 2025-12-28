@@ -1,118 +1,111 @@
-# Drosera Trap Foundry Template
+# 🧮 Collateralization Ratio Slope Trap
 
-This repo is for quickly bootstrapping a new Drosera project. It includes instructions for creating your first trap, deploying it to the Drosera network, and updating it on the fly.
+### DeFi Liquidation Predictor (Drosera Trap)
 
-[![view - Documentation](https://img.shields.io/badge/view-Documentation-blue?style=for-the-badge)](https://dev.drosera.io "Project documentation")
-[![Twitter](https://img.shields.io/twitter/follow/DroseraNetwork?style=for-the-badge)](https://x.com/DroseraNetwork)
+## Overview
 
-## Configure dev environment
+The **Collateralization Ratio Slope Trap** is a predictive risk-monitoring trap designed to detect accounts or vaults that are rapidly approaching undercollateralization.
 
-```bash
-curl -L https://foundry.paradigm.xyz | bash
-foundryup
+Instead of relying on static collateral thresholds, this trap analyzes **how fast collateral health is deteriorating over time**, allowing protocols to act *before* forced liquidations occur.
 
-# The trap-foundry-template utilizes node modules for dependency management
-# install Bun (optional)
-curl -fsSL https://bun.sh/install | bash
+---
 
-# install node modules
-bun install
+## Why This Matters
 
-# install vscode (optional)
-# - add solidity extension JuanBlanco.solidity
+Liquidations are expensive and destabilizing:
 
-# install drosera-cli
-curl -L https://app.drosera.io/install | bash
-droseraup
-```
+* High slippage
+* MEV extraction
+* Bad debt risk
+* Cascading liquidations
 
-open the VScode preferences and Select `Soldity: Change workpace compiler version (Remote)`
+Most protocols only react **after** a collateral ratio crosses a hard limit. This trap provides **early warning**, enabling safer, proactive risk management.
 
-Select version `0.8.12`
+---
 
-## Quick Start
+## What the Trap Detects
 
-The following drosera commands set the `DROSERA_PRIVATE_KEY` environment variable in the command line but you can also use a `.env` file to store the private key of the account you want to use to deploy the trap.
+For a given account, vault, or aggregate pool, the trap monitors:
 
-### Hello World Trap
+* Collateralization ratio per block
+* **Slope** (first derivative): how fast the ratio is falling
+* **Acceleration** (second derivative): whether the fall is speeding up
+* Consistent downward trends across multiple blocks
 
-The drosera.toml file is configured to deploy a simple "Hello, World!" trap. Ensure the drosera.toml file is set to the following configuration:
+The trap triggers when deterioration is both **fast** and **accelerating**.
 
-```toml
-response_contract = "0xdA890040Af0533D98B9F5f8FE3537720ABf83B0C"
-response_function = "helloworld(string)"
-```
+---
 
-To deploy the trap, run the following commands:
+## Architecture
 
-```bash
-# Compile the Trap
-forge build
+This system follows the standard **Drosera feeder → trap → responder** model.
 
-# Deploy the Trap
-DROSERA_PRIVATE_KEY=0x.. drosera apply
-```
+### 1. Feeder
 
-After successfully deploying the trap, the CLI will add an `address` field to the `drosera.toml` file.
+* Computes the collateralization ratio (in basis points)
+* Can target:
 
-Congratulations! You have successfully deployed your first trap!
+  * a single high-risk account
+  * a vault
+  * an aggregated borrower pool
+* Exposes a clean snapshot every block
 
-### Response Trap
+### 2. Trap
 
-You can then update the trap by changing its logic and recompling it or changing the path field in the `drosera.toml` file to point to the Response Trap.
+* `collect()` reads the feeder snapshot safely
+* `shouldRespond()` performs time-series analysis
+* Pure, deterministic logic
+* No state writes or side effects
 
-The Response Trap is designed to trigger a response at a specific block number. To test the Response Trap, pick a future block number and update the Response Trap.
-Specify a response contract address and function signature in the drosera.toml file to the following:
+### 3. Responder
 
-```toml
-response_contract = "0x183D78491555cb69B68d2354F7373cc2632508C7"
-response_function = "responseCallback(uint256)"
-```
+When triggered, the responder can:
 
-Finally, deploy the Response Trap by running the following commands:
+* Emit risk events
+* Flag risky positions
+* Restrict further borrowing
+* Trigger partial liquidations
+* Alert off-chain risk systems
 
-```bash
-# Compile the Trap
-forge build
+---
 
-# Deploy the Trap
-DROSERA_PRIVATE_KEY=0x.. drosera apply
-```
+## Detection Logic (Simplified)
 
-> Note: The `DROSERA_PRIVATE_KEY` environment variable can be used to deploy traps. You can also set it in the drosera.toml file as `private_key = "0x.."`.
+1. Read collateral ratios over the last N blocks
+2. Compute slope (Δ collateral ratio)
+3. Compute acceleration (change in slope)
+4. Verify a persistent downward trend
+5. Trigger if thresholds are exceeded
 
+This avoids false positives from short-lived price movements.
 
-### Transfer Event Trap
-The TransferEventTrap is an example of how a Trap can parse event logs from a block and respond to a specific ERC-20 token transfer events.
+---
 
-To deploy the Transfer Event Trap, uncomment the `transfer_event_trap` section in the `drosera.toml` file. Add the token address to the `tokenAddress` constant in the `TransferEventTrap.sol` file and then deploy the trap.
+## Example Scenario
 
-### Alert Trap
-The AlertTrap is an example of how a Trap can parse event logs from a block and alert on a specific ERC-20 token transfer events.
+| Block | Collateral Ratio |
+| ----- | ---------------- |
+| N-3   | 190%             |
+| N-2   | 175%             |
+| N-1   | 155%             |
+| N     | 138%             |
 
-To deploy the Alert Trap, run the following commands:
+The account is not liquidatable yet, but deterioration is rapid. The trap triggers **before liquidation bots act**.
 
-```bash
-forge build
+---
 
-DROSERA_PRIVATE_KEY=0x.. drosera -c drosera.alerts.toml.j2 apply
-```
+## Key Properties
 
-> Note: The `.j2` file extension is used to indicate that the file is a jinja template and environment variables can be used in the file by wrapping them in `{{ env.VARIABLE_NAME }}`.
+* ✅ Predictive, not reactive
+* ✅ Time-series and derivative-based
+* ✅ Drosera-compliant and deterministic
+* ✅ Reduces liquidation severity and bad debt
+* ✅ Improves protocol risk management
 
-Once configured properly, you can test the alert integration by running the following command;
+---
 
-```bash
-DROSERA_PRIVATE_KEY=0x.. drosera -c drosera.alerts.toml.j2 send-test-alert --trap-name alert_trap
-```
+## Summary
 
-This will run the tests and you should see the alert being triggered in the console.
+**The Collateralization Ratio Slope Trap identifies positions that are becoming unsafe quickly, giving protocols time to intervene before forced liquidations occur.**
 
-
-## Testing
-
-Example tests are included in the `tests` directory. They simulate how Drosera Operators execute traps and determine if a response should be triggered. To run the tests, execute the following command:
-
-```bash
-forge test
-```
+It enables smarter, earlier, and safer responses to market stress.
